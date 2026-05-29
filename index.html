@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Estoque de Rolamentos Avançado</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f4f8;
+            color: #333;
+        }
+        h1, h2, h3 { color: #2c3e50; margin-top: 0; }
+        hr { border: 0; height: 1px; background: #dcdde1; margin: 20px 0; }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        .box {
+            border: 1px solid #e1e8ed;
+            padding: 20px;
+            border-radius: 8px;
+            background: #fbfcfd;
+        }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: #4a5568; }
+        input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #cbd5e0;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        button {
+            background-color: #3182ce;
+            color: white;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        button:hover { background-color: #2b6cb0; }
+        .btn-danger { background-color: #e53e3e; }
+        .btn-danger:hover { background-color: #c53030; }
+        .btn-success { background-color: #38a169; }
+        .btn-success:hover { background-color: #2f855a; }
+        .btn-secondary { background-color: #718096; }
+        .btn-secondary:hover { background-color: #4a5568; }
+        
+        .search-container {
+            background: #edf2f7;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
+        th { background-color: #edf2f7; color: #4a5568; }
+        .alerta { background-color: #fff5f5; color: #c53030; }
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .badge-danger { background-color: #fed7d7; color: #9b2c2c; }
+        .badge-success { background-color: #c6f6d5; color: #22543d; }
+        
+        .checkbox-cell { text-align: center; width: 40px; }
+        .checkbox-cell input { transform: scale(1.2); cursor: pointer; }
+        
+        .order-actions {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+            background: #ebf8ff;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #bee3f8;
+            align-items: center;
+        }
+        .order-actions p { margin: 0; font-size: 14px; color: #2b6cb0; flex-grow: 1; }
+        .order-actions button { width: auto; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>⚙️ Sistema de Rolamentos — Controle de Estoque & Compras</h1>
+    <hr>
+
+    <div class="grid">
+        <div class="box">
+            <h2><span id="form-action-title">Cadastrar / Alterar</span> Rolamento</h2>
+            <form id="form-cadastro">
+                <div class="form-group">
+                    <label>Código do Rolamento:</label>
+                    <input type="text" id="cad-modelo" placeholder="Ex: 6204 ZZ" required>
+                </div>
+                <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 0;">
+                    <div class="form-group">
+                        <label>Qtd Atual:</label>
+                        <input type="number" id="cad-qtd" min="0" value="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Qtd Mínima:</label>
+                        <input type="number" id="cad-min" min="0" value="3" required>
+                    </div>
+                </div>
+                <button type="submit" id="btn-salvar">Gravar no Estoque</button>
+                <button type="button" id="btn-cancelar-edicao" class="btn-secondary" style="display:none; margin-top: 8px;">Cancelar Edição</button>
+            </form>
+        </div>
+
+        <div class="box">
+            <h2>🔄 Registrar Saída (Consumo)</h2>
+            <form id="form-saida">
+                <div class="form-group">
+                    <label>Selecione o Rolamento:</label>
+                    <select id="saida-select" required>
+                        <option value="">-- Escolha um rolamento --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Quantidade de Saída:</label>
+                    <input type="number" id="saida-qtd" min="1" value="1" required>
+                </div>
+                <button type="submit" class="btn-danger">Confirmar Saída</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="search-container">
+        <h3>🔍 Filtrar e Buscar no Estoque</h3>
+        <div class="grid" style="grid-template-columns: 2fr 1fr; gap: 15px; margin-bottom: 0;">
+            <div class="form-group" style="margin-bottom: 0;">
+                <label>Pesquisar por código ou parte do nome:</label>
+                <input type="text" id="busca-input" placeholder="Digite parte do rolamento... Ex: 6200 ou DDU">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label>Filtro de Status:</label>
+                <select id="filtro-status">
+                    <option value="todos">Mostrar Todos</option>
+                    <option value="abaixo">Apenas Abaixo do Mínimo</option>
+                    <option value="ok">Apenas Estoque OK</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="order-actions">
+        <p>💡 Marque os itens desejados na tabela abaixo ou use o atalho para selecionar todos os críticos de uma vez.</p>
+        <button class="btn-secondary" onclick="selecionarTodosAbaixoMinimo()">Selecionar Críticos (Abaixo do Mínimo)</button>
+        <button class="btn-success" onclick="gerarOrdemDeCompraSelecionados()">Gerar Ordem de Compra (<span id="count-selecionados">0</span>)</button>
+    </div>
+
+    <h2>📦 Inventário de Rolamentos</h2>
+    
+    <table style="width:100%">
+        <thead>
+            <tr>
+                <th class="checkbox-cell"><input type="checkbox" id="select-all-headers" onclick="toggleTodosCheckboxes(this)"></th>
+                <th>Código do Rolamento</th>
+                <th>Qtd Atual</th>
+                <th>Qtd Mínima</th>
+                <th>Total Saídas (Ranking)</th>
+                <th>Status</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody id="tabela-estoque">
+            </tbody>
+    </table>
+</div>
+
+<script>
+    // Os dados iniciais da sua imagem estão todos aqui mapeados
+    const cargaInicial = {
+        "32209/VM900": { qtd: 2, min: 3, saidas: 0 }, "32213 A": { qtd: 4, min: 3, saidas: 0 },
+        "6001 ZZ": { qtd: 3, min: 3, saidas: 0 }, "6003 DDUC3": { qtd: 2, min: 3, saidas: 0 },
+        "6004": { qtd: 1, min: 3, saidas: 0 }, "6006 ZZ": { qtd: 2, min: 3, saidas: 0 },
+        "6008 2RS1": { qtd: 1, min: 3, saidas: 0 }, "6008 ZZ": { qtd: 8, min: 3, saidas: 0 },
+        "6200 2RSC3": { qtd: 1, min: 3, saidas: 0 }, "6200 DDUC3": { qtd: 4, min: 3, saidas: 0 },
+        "6201 DDU": { qtd: 3, min: 3, saidas: 0 }, "6201 ZZ": { qtd: 5, min: 3, saidas: 0 },
+        "6202 DDU": { qtd: 4, min: 3, saidas: 0 }, "6202 ZZ": { qtd: 7, min: 3, saidas: 0 },
+        "6203 ZZ": { qtd: 7, min: 3, saidas: 0 }, "6204 DDUC3": { qtd: 3, min: 3, saidas: 0 },
+        "6204 ZZ": { qtd: 5, min: 3, saidas: 0 }, "6205 ZZ": { qtd: 8, min: 3, saidas: 0 },
+        "6206 ZNR": { qtd: 12, min: 3, saidas: 0 }, "6206 ZZ": { qtd: 5, min: 3, saidas: 0 },
+        "6207 ZZ": { qtd: 2, min: 3, saidas: 0 }, "6208 2RS1": { qtd: 1, min: 3, saidas: 0 },
+        "6208 ZZ": { qtd: 5, min: 3, saidas: 0 }, "6209 ZZ": { qtd: 10, min: 3, saidas: 0 },
+        "6210 2RS1": { qtd: 1, min: 3, saidas: 0 }, "6210 ZZ": { qtd: 7, min: 3, saidas: 0 },
+        "6211 ZZ": { qtd: 14, min: 3, saidas: 0 }, "6303 ZZ": { qtd: 3, min: 3, saidas: 0 },
+        "6304 ZZ": { qtd: 1, min: 3, saidas: 0 }, "6305 ZZ": { qtd: 6, min: 3, saidas: 0 },
+        "6306 ZZ": { qtd: 9, min: 3, saidas: 0 }, "6307 ZZ": { qtd: 2, min: 3, saidas: 0 },
+        "6308 ZZ": { qtd: 2, min: 3, saidas: 0 }, "6309 ZZ": { qtd: 8, min: 3, saidas: 0 },
+        "6310 ZZ": { qtd: 2, min: 3, saidas: 0 }, "6311 ZZ": { qtd: 7, min: 3, saidas: 0 },
+        "6320 ZZ": { qtd: 2, min: 3, saidas: 0 }, "YSA 206 2RF": { qtd: 4, min: 3, saidas: 0 }
+    };
+
+    let estoque = JSON.parse(localStorage.getItem('estoque_rolamentos_v2')) || cargaInicial;
+    let editandoModelo = null;
+
+    const buscaInput = document.getElementById('busca-input');
+    const filtroStatus = document.getElementById('filtro-status');
+    const saidaSelect = document.getElementById('saida-select');
+    const tabelaEstoque = document.getElementById('tabela-estoque');
+
+    function salvarDados() {
+        localStorage.setItem('estoque_rolamentos_v2', JSON.stringify(estoque));
+        renderizarTabela();
+        atualizarSelectSaida();
+    }
+
+    function atualizarSelectSaida() {
+        const valorSelecionado = saidaSelect.value;
+        saidaSelect.innerHTML = '<option value="">-- Escolha um rolamento --</option>';
+        Object.keys(estoque).sort().forEach(modelo => {
+            const option = document.createElement('option');
+            option.value = modelo;
+            option.textContent = `${modelo} (Saldo: ${estoque[modelo].qtd})`;
+            saidaSelect.appendChild(option);
+        });
+        if (estoque[valorSelecionado]) saidaSelect.value = valorSelecionado;
+    }
+
+    document.getElementById('form-cadastro').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const modelo = document.getElementById('cad-modelo').value.trim().toUpperCase();
+        const qtd = parseInt(document.getElementById('cad-qtd').value);
+        const min = parseInt(document.getElementById('cad-min').value);
+
+        if (editandoModelo && editandoModelo !== modelo) delete estoque[editandoModelo];
+        estoque[modelo] = { qtd: qtd, min: min, saidas: editandoModelo ? estoque[modelo].saidas : 0 };
+
+        cancelarEdicao();
+        salvarDados();
+    });
+
+    function prepararEdicao(modelo) {
+        editandoModelo = modelo;
+        document.getElementById('cad-modelo').value = modelo;
+        document.getElementById('cad-qtd').value = estoque[modelo].qtd;
+        document.getElementById('cad-min').value = estoque[modelo].min;
+        document.getElementById('form-action-title').textContent = "Alterar";
+        document.getElementById('btn-salvar').textContent = "Salvar Alterações";
+        document.getElementById('btn-cancelar-edicao').style.display = "block";
+    }
+
+    function cancelarEdicao() {
+        editandoModelo = null;
+        document.getElementById('form-cadastro').reset();
+        document.getElementById('form-action-title').textContent = "Cadastrar / Alterar";
+        document.getElementById('btn-salvar').textContent = "Gravar no Estoque";
+        document.getElementById('btn-cancelar-edicao').style.display = "none";
+    }
+    document.getElementById('btn-cancelar-edicao').addEventListener('click', cancelarEdicao);
+
+    document.getElementById('form-saida').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const modelo = saidaSelect.value;
+        const qtdSaida = parseInt(document.getElementById('saida-qtd').value);
+        if (!modelo) return;
+
+        if (estoque[modelo].qtd < qtdSaida) {
+            alert('Estoque insuficiente!');
+            return;
+        }
+        estoque[modelo].qtd -= qtdSaida;
+        estoque[modelo].saidas += qtdSaida;
+        document.getElementById('saida-qtd').value = 1;
+        salvarDados();
+    });
+
+    function deletarItem(modelo) {
+        if(confirm(`Excluir ${modelo}?`)) { delete estoque[modelo]; salvarDados(); }
+    }
+
+    buscaInput.addEventListener('input', renderizarTabela);
+    filtroStatus.addEventListener('change', renderizarTabela);
+
+    function renderizarTabela() {
+        const busca = buscaInput.value.trim().toUpperCase();
+        const filtro = filtroStatus.value;
+        tabelaEstoque.innerHTML = '';
+
+        let itens = Object.keys(estoque).map(m => ({ modelo: m, ...estoque[m] })).sort((a,b) => b.saidas - a.saidas);
+
+        itens = itens.filter(item => {
+            const bateBusca = item.modelo.includes(busca);
+            const bateFiltro = filtro === 'todos' || (filtro === 'abaixo' && item.qtd <= item.min) || (filtro === 'ok' && item.qtd > item.min);
+            return bateBusca && bateFiltro;
+        });
+
+        itens.forEach(item => {
+            const tr = document.createElement('tr');
+            const critico = item.qtd <= item.min;
+            if (critico) tr.classList.add('alerta');
+
+            tr.innerHTML = `
+                <td class="checkbox-cell"><input type="checkbox" class="order-checkbox" data-modelo="${item.modelo}" onclick="atualizarContador()"></td>
+                <td><strong>${item.modelo}</strong></td>
+                <td>${item.qtd} un.</td>
+                <td>${item.min} un.</td>
+                <td>🔥 ${item.saidas}</td>
+                <td><span class="badge ${critico?'badge-danger':'badge-success'}">${critico?'Repor':'OK'}</span></td>
+                <td>
+                    <button class="btn-secondary" style="padding:2px 6px; font-size:12px;" onclick="prepararEdicao('${item.modelo}')">Editar</button>
+                    <button class="btn-danger" style="padding:2px 6px; font-size:12px;" onclick="deletarItem('${item.modelo}')">X</button>
+                </td>
+            `;
+            tabelaEstoque.appendChild(tr);
+        });
+        atualizarContador();
+    }
+
+    function toggleTodosCheckboxes(master) {
+        document.querySelectorAll('.order-checkbox').forEach(cb => cb.checked = master.checked);
+        atualizarContador();
+    }
+
+    function selecionarTodosAbaixoMinimo() {
+        document.querySelectorAll('.order-checkbox').forEach(cb => {
+            const m = cb.getAttribute('data-modelo');
+            cb.checked = estoque[m] && (estoque[m].qtd <= estoque[m].min);
+        });
+        atualizarContador();
+    }
+
+    function atualizarContador() {
+        document.getElementById('count-selecionados').textContent = document.querySelectorAll('.order-checkbox:checked').length;
+    }
+
+    function gerarOrdemDeCompraSelecionados() {
+        const marcados = document.querySelectorAll('.order-checkbox:checked');
+        if (marcados.length === 0) { alert('Selecione ao menos um item.'); return; }
+
+        let linhas = '';
+        marcados.forEach(cb => {
+            const m = cb.getAttribute('data-modelo');
+            const item = estoque[m];
+            const sugerido = Math.max((item.min * 2) - item.qtd, 5); // Sugere o dobro do mínimo menos o atual
+            linhas += `<tr><td><strong>${m}</strong></td><td>${item.qtd} un.</td><td>${item.min} un.</td><td><strong>${sugerido} un.</strong></td><td>[ &nbsp; ]</td></tr>`;
+        });
+
+        const janela = window.open('', '_blank');
+        janela.document.write(`
+            <html><head><title>Ordem de Compra</title><style>
+                body { font-family: Arial, sans-serif; padding: 30px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #ccc; padding: 10px; text-align: left; }
+                th { background: #f4f4f4; }
+            </style></head><body>
+                <h2>📋 SOLICITAÇÃO CONSOLIDADA DE COMPRAS</h2>
+                <p>Data: ${new Date().toLocaleDateString('pt-BR')}</p>
+                <table>
+                    <thead><tr><th>Modelo</th><th>Qtd Atual</th><th>Qtd Mínima</th><th>Sugestão de Compra</th><th>Conferido</th></tr></thead>
+                    <tbody>${linhas}</tbody>
+                </table>
+                <script>window.onload = function() { window.print(); window.close(); }<\/script>
+            </body></html>
+        `);
+        janela.document.close();
+    }
+
+    salvarDados();
+</script>
+</body>
+</html>
