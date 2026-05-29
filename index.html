@@ -106,7 +106,7 @@
     <hr>
 
     <div class="grid">
-        <div class="box">
+        <div class="box" id="bloco-cadastro">
             <h2><span id="form-action-title">Cadastrar / Alterar</span> Rolamento</h2>
             <form id="form-cadastro">
                 <div class="form-group">
@@ -190,7 +190,6 @@
 </div>
 
 <script>
-    // Os dados iniciais da sua imagem estão todos aqui mapeados
     const cargaInicial = {
         "32209/VM900": { qtd: 2, min: 3, saidas: 0 }, "32213 A": { qtd: 4, min: 3, saidas: 0 },
         "6001 ZZ": { qtd: 3, min: 3, saidas: 0 }, "6003 DDUC3": { qtd: 2, min: 3, saidas: 0 },
@@ -239,14 +238,35 @@
         if (estoque[valorSelecionado]) saidaSelect.value = valorSelecionado;
     }
 
+    // CORRIGIDO: Processamento do formulário de cadastro/edição corrigido
     document.getElementById('form-cadastro').addEventListener('submit', function(e) {
         e.preventDefault();
         const modelo = document.getElementById('cad-modelo').value.trim().toUpperCase();
         const qtd = parseInt(document.getElementById('cad-qtd').value);
         const min = parseInt(document.getElementById('cad-min').value);
 
-        if (editandoModelo && editandoModelo !== modelo) delete estoque[editandoModelo];
-        estoque[modelo] = { qtd: qtd, min: min, saidas: editandoModelo ? estoque[modelo].saidas : 0 };
+        // Guarda o histórico de saídas antigo (se houver) para não zerar
+        let historicoSaidas = 0;
+
+        if (editandoModelo) {
+            // Se existia um histórico no item que estamos editando, preserva ele
+            historicoSaidas = estoque[editandoModelo] ? estoque[editandoModelo].saidas : 0;
+            
+            // Se o usuário alterou o texto do código do rolamento, apaga a chave antiga do banco
+            if (editandoModelo !== modelo) {
+                delete estoque[editandoModelo];
+            }
+        } else if (estoque[modelo]) {
+            // Se não está em modo edição mas cadastrou um nome que já existe, preserva o histórico dele
+            historicoSaidas = estoque[modelo].saidas;
+        }
+
+        // Salva/Insere com as novas propriedades corrigidas
+        estoque[modelo] = { 
+            qtd: qtd, 
+            min: min, 
+            saidas: historicoSaidas 
+        };
 
         cancelarEdicao();
         salvarDados();
@@ -257,9 +277,13 @@
         document.getElementById('cad-modelo').value = modelo;
         document.getElementById('cad-qtd').value = estoque[modelo].qtd;
         document.getElementById('cad-min').value = estoque[modelo].min;
+        
         document.getElementById('form-action-title').textContent = "Alterar";
         document.getElementById('btn-salvar').textContent = "Salvar Alterações";
         document.getElementById('btn-cancelar-edicao').style.display = "block";
+        
+        // Move a tela suavemente para cima para o formulário ficar visível
+        document.getElementById('bloco-cadastro').scrollIntoView({ behavior: 'smooth' });
     }
 
     function cancelarEdicao() {
@@ -288,7 +312,11 @@
     });
 
     function deletarItem(modelo) {
-        if(confirm(`Excluir ${modelo}?`)) { delete estoque[modelo]; salvarDados(); }
+        if(confirm(`Excluir ${modelo}?`)) { 
+            delete estoque[modelo]; 
+            if(editandoModelo === modelo) cancelarEdicao();
+            salvarDados(); 
+        }
     }
 
     buscaInput.addEventListener('input', renderizarTabela);
@@ -354,7 +382,7 @@
         marcados.forEach(cb => {
             const m = cb.getAttribute('data-modelo');
             const item = estoque[m];
-            const sugerido = Math.max((item.min * 2) - item.qtd, 5); // Sugere o dobro do mínimo menos o atual
+            const sugerido = Math.max((item.min * 2) - item.qtd, 5); 
             linhas += `<tr><td><strong>${m}</strong></td><td>${item.qtd} un.</td><td>${item.min} un.</td><td><strong>${sugerido} un.</strong></td><td>[ &nbsp; ]</td></tr>`;
         });
 
